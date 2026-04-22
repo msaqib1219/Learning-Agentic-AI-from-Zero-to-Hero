@@ -9,10 +9,9 @@ from typing import Optional
 import asyncpg
 from fastapi import APIRouter, HTTPException, Request, Response, Depends
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from dotenv import load_dotenv
 import bcrypt
-from authlib.integrations.httpx_client import AsyncOAuth2Session
 import httpx
 
 load_dotenv()
@@ -154,46 +153,52 @@ async def get_session(token: str):
 @router.post("/sign-up")
 async def sign_up(req: SignUpRequest):
     """Register a new user."""
-    # Check if user exists
-    user = await get_user_by_email(req.email)
-    if user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    user_id = generate_id()
-    password_hash = hash_password(req.password)
-
-    conn = await asyncpg.connect(DATABASE_URL)
     try:
-        await conn.execute('''
-            INSERT INTO "user" (id, email, name, "emailVerified")
-            VALUES ($1, $2, $3, TRUE)
-        ''', user_id, req.email, req.name)
+        # Check if user exists
+        user = await get_user_by_email(req.email)
+        if user:
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-        # Create session
-        session_token = generate_id()
-        expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-        session_id = generate_id()
+        user_id = generate_id()
+        password_hash = hash_password(req.password)
 
-        await conn.execute('''
-            INSERT INTO session (id, "userId", token, "expiresAt")
-            VALUES ($1, $2, $3, $4)
-        ''', session_id, user_id, session_token, expires_at)
-    finally:
-        await conn.close()
+        conn = await asyncpg.connect(DATABASE_URL)
+        try:
+            await conn.execute('''
+                INSERT INTO "user" (id, email, name, "emailVerified")
+                VALUES ($1, $2, $3, TRUE)
+            ''', user_id, req.email, req.name)
 
-    # Return session
-    user = await get_user_by_email(req.email)
-    return {
-        "user": {
-            "id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-        },
-        "session": {
-            "token": session_token,
-            "expiresAt": expires_at.isoformat(),
+            # Create session
+            session_token = generate_id()
+            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+            session_id = generate_id()
+
+            await conn.execute('''
+                INSERT INTO session (id, "userId", token, "expiresAt")
+                VALUES ($1, $2, $3, $4)
+            ''', session_id, user_id, session_token, expires_at)
+        finally:
+            await conn.close()
+
+        # Return session
+        user = await get_user_by_email(req.email)
+        return {
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "name": user["name"],
+            },
+            "session": {
+                "token": session_token,
+                "expiresAt": expires_at.isoformat(),
+            }
         }
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Sign-up error: {e}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
 @router.post("/sign-in")
