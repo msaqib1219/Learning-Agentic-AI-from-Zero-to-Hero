@@ -5,13 +5,6 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Proxy better-auth requests to auth server on Railway
-[[redirects]]
-  from = "/auth/*"
-  to = "https://auth-server-production.up.railway.app/auth/:splat"
-  status = 200
-  force = true
-
 # Proxy API calls to backend (keeps cookies first-party)
 [[redirects]]
   from = "/api/*"
