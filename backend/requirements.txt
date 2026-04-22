@@ -4,6 +4,7 @@ google-genai
 qdrant-client
 python-dotenv
 asyncpg
+aiosqlite
 pydantic
 pydantic-settings
 python-jose[cryptography]

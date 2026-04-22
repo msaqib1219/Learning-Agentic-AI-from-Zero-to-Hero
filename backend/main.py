@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 
 from database import init_db, add_message, get_history
 from auth import verify_api_key, verify_auth, check_rate_limit, rate_limiter, get_client_identifier
-from auth_server import router as auth_router, init_auth_db
+from auth_server_simple import router as auth_router, init_auth_db_sqlite
 
 # Load environment variables FIRST (override=True to override system env vars)
 load_dotenv(override=True)
@@ -43,8 +43,8 @@ COLLECTION_NAME = "agentic_ai_book"
 async def lifespan(app: FastAPI):
     # Startup
     try:
-        await init_auth_db()
-        await init_db()
+        init_auth_db_sqlite()  # SQLite - synchronous
+        await init_db()  # PostgreSQL - async
     except Exception as e:
         print(f"Warning: Database initialization failed: {e}")
     yield

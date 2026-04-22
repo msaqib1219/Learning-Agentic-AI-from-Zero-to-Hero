@@ -11,21 +11,27 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 async def init_db():
     """Initialize database - only chat_history table.
     better-auth manages its own tables (user, session, account, verification).
+    Gracefully fails if PostgreSQL is not available (e.g., in local dev).
     """
-    conn = await asyncpg.connect(DATABASE_URL)
     try:
-        await conn.execute('''
-            CREATE TABLE IF NOT EXISTS chat_history (
-                id SERIAL PRIMARY KEY,
-                session_id TEXT NOT NULL,
-                user_message TEXT NOT NULL,
-                bot_response TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                user_id TEXT
-            )
-        ''')
-    finally:
-        await conn.close()
+        conn = await asyncpg.connect(DATABASE_URL, timeout=2)
+        try:
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id SERIAL PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    user_message TEXT NOT NULL,
+                    bot_response TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    user_id TEXT
+                )
+            ''')
+            print("✅ PostgreSQL chat_history table initialized")
+        finally:
+            await conn.close()
+    except Exception as e:
+        print(f"⚠️  PostgreSQL not available (using SQLite for auth): {type(e).__name__}")
+        # Chat history will be unavailable, but auth will work with SQLite
 
 
 # --- Chat history functions ---
